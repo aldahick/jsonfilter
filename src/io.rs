@@ -68,10 +68,10 @@ where
 {
   let archive_file = File::open(from)?;
   let extract_file = File::create(to)?;
-  let mut decoder = Decoder::new(archive_file)?;
+  let reader = progress_bar.wrap_read(BufReader::new(archive_file));
+  let mut decoder = Decoder::new(reader)?;
   decoder.window_log_max(31)?;
   let mut writer = BufWriter::new(&extract_file);
-  let mut reader = progress_bar.wrap_read(decoder);
-  copy(&mut reader, &mut writer)?;
+  copy(&mut decoder, &mut writer)?;
   Ok(extract_file.metadata()?.len())
 }
