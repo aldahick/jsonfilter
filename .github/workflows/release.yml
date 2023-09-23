@@ -1,0 +1,55 @@
+run-name: Release ${{ github.ref_name }}
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: cargo build --release
+      - name: Upload binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: bin-linux
+          path: ./target/release/jsonfilter
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: cargo build --release
+      - name: Upload binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: bin-windows
+          path: ./target/release/jsonfilter.exe
+
+  create-release:
+    needs:
+      - build-linux
+      - build-windows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Linux binary
+        uses: actions/download-artifact@v3
+        with:
+          name: bin-linux
+      - name: Download Windows binary
+        uses: actions/download-artifact@v3
+        with:
+          name: bin-windows
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            jsonfilter
+            jsonfilter.exe

@@ -11,8 +11,8 @@ mod progress;
 struct Args {
   /// Optionally provide a zst archive to unpack.
   /// If provided, input is the path within the archive.
-  // #[arg(short, long)]
-  // archive: String,
+  #[arg(short, long)]
+  archive: String,
 
   /// Input file - must be newline-separated json.
   #[arg(short, long)]
@@ -45,19 +45,28 @@ fn main() -> Result<(), Box<dyn Error>> {
   let total_size = io::get_size(&args.input)?;
   let progress = create_progress_bar(total_size)?;
   let mut total_read: u64 = 0;
+  let mut total_wrote: u64 = 0;
   let mut writer = io::write_lines(&args.output)?;
   let lines = io::read_lines_buf(&args.input)?;
   let key = args.key.as_str();
   let filter = args.filter.as_str();
   for line_result in lines {
     let line = line_result?;
+    let line_len = line.len() as u64 + 1;
     let mut line_clone = line.clone();
     let row: simd_json::BorrowedValue = to_borrowed_value(line_clone.as_mut_slice())?;
     if is_filtered(&row, key, filter).unwrap_or(false) {
       writer.write_all(&line)?;
+      total_wrote += line_len;
     }
-    total_read += (line.len() + 1) as u64;
+    total_read += line_len;
     progress.set_position(total_read);
   }
+  println!(
+    "Finished filtering {} GB into {} MB in {} seconds",
+    total_size,
+    total_wrote,
+    progress.elapsed().as_secs()
+  );
   Ok(())
 }
