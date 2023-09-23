@@ -1,43 +1,63 @@
-use std::env;
-use std::error::Error;
-use std::fs::File;
-use std::io::{self, BufRead, BufWriter, Write};
-use std::path::Path;
-use std::process::exit;
+use clap::Parser;
+use progress::create_progress_bar;
+use simd_json::{to_borrowed_value, BorrowedValue, ValueAccess};
+use std::{error::Error, io::Write};
 
-use serde_json::Value;
+mod io;
+mod progress;
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 5 {
-        println!("usage: jsonfilter <input-file> <output-file> <key> <value>");
-        println!("{:#?}", args);
-        exit(1);
-    }
-    let input_path = &args[1];
-    let output_path = &args[2];
-    let json_key = &args[3];
-    let json_value = &args[4];
-    let output_file = File::create(output_path)?;
-    let mut file_writer = BufWriter::new(output_file);
-    if let Ok(lines) = read_lines(input_path) {
-        for line_result in lines {
-            let line = line_result?;
-            let row: Value = serde_json::from_str(&line)?;
-            if row[json_key].as_str().expect("value is not a string") == json_value {
-                file_writer.write_all(line.as_bytes())?;
-            }
-        }
-    }
-    Ok(())
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+  /// Optionally provide a zst archive to unpack.
+  /// If provided, input is the path within the archive.
+  // #[arg(short, long)]
+  // archive: String,
+
+  /// Input file - must be newline-separated json.
+  #[arg(short, long)]
+  input: String,
+
+  /// Output file - newline-separated json will be written to this path.
+  #[arg(short, long)]
+  output: String,
+
+  /// JSON key to filter on.
+  #[arg(short, long)]
+  key: String,
+
+  /// JSON value to filter on.
+  #[arg(short, long)]
+  filter: String,
+
+  /// If set, do not log progress
+  #[arg(short, long, default_value_t = false)]
+  quiet: bool,
 }
 
-// The output is wrapped in a Result to allow matching on errors
-// Returns an Iterator to the Reader of the lines of the file.
-fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-where
-    P: AsRef<Path>,
-{
-    let file = File::open(filename)?;
-    Ok(io::BufReader::new(file).lines())
+fn is_filtered(row: &BorrowedValue, key: &str, filter: &str) -> Option<bool> {
+  let value = row.as_object()?.get(key)?;
+  Some(value.as_str()? == filter)
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+  let args = Args::parse();
+  let total_size = io::get_size(&args.input)?;
+  let progress = create_progress_bar(total_size)?;
+  let mut total_read: u64 = 0;
+  let mut writer = io::write_lines(&args.output)?;
+  let lines = io::read_lines_buf(&args.input)?;
+  let key = args.key.as_str();
+  let filter = args.filter.as_str();
+  for line_result in lines {
+    let line = line_result?;
+    let mut line_clone = line.clone();
+    let row: simd_json::BorrowedValue = to_borrowed_value(line_clone.as_mut_slice())?;
+    if is_filtered(&row, key, filter).unwrap_or(false) {
+      writer.write_all(&line)?;
+    }
+    total_read += (line.len() + 1) as u64;
+    progress.set_position(total_read);
+  }
+  Ok(())
 }
