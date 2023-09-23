@@ -11,7 +11,7 @@ mod progress;
 struct Args {
   /// Optionally provide a zst archive to unpack.
   /// If provided, input is the path within the archive.
-  #[arg(short, long)]
+  #[arg(short, long, default_value = "")]
   archive: String,
 
   /// Input file - must be newline-separated json.
