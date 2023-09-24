@@ -6,7 +6,8 @@ use std::{collections::HashSet, error::Error, io::Write};
 mod io;
 mod progress;
 
-const MEGABYTE: f64 = 1024.0 * 1024.0;
+const KILOBYTE: f64 = 1024.0;
+const MEGABYTE: f64 = KILOBYTE * 1024.0;
 const GIGABYTE: f64 = MEGABYTE * 1024.0;
 
 #[derive(Parser, Debug)]
@@ -86,7 +87,7 @@ fn write_unique_values(args: &Args) -> Result<(), Box<dyn Error>> {
     let value = get_json_value(&row, key);
     match value {
       Some(str) => {
-        if unique_values.contains(str) {
+        if !unique_values.contains(str) {
           unique_values.insert(str.to_owned());
         }
       }
@@ -98,9 +99,9 @@ fn write_unique_values(args: &Args) -> Result<(), Box<dyn Error>> {
   let json = simd_json::to_string(&unique_values)?;
   io::write_all(&args.output, json.as_bytes())?;
   println!(
-    "Finished writing unique values from {:.2} GB into {:.2} MB in {} seconds",
+    "Finished writing unique values from {:.2} GB into {:.2} KB in {} seconds",
     total_size as f64 / GIGABYTE,
-    json.len() as f64 / MEGABYTE,
+    json.len() as f64 / KILOBYTE,
     progress.elapsed().as_secs()
   );
   Ok(())
