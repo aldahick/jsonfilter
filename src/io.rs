@@ -1,6 +1,6 @@
 use std::{
   fs::File,
-  io::{copy, BufRead, BufReader, BufWriter, Result},
+  io::{copy, BufRead, BufReader, BufWriter, Result, Write},
   path::Path,
 };
 
@@ -21,6 +21,14 @@ where
 {
   let file = File::create(filename)?;
   Ok(BufWriter::new(file))
+}
+
+pub fn write_all<P>(filename: P, data: &[u8]) -> Result<()>
+where
+  P: AsRef<Path>,
+{
+  let mut file = File::create(filename)?;
+  file.write_all(data)
 }
 
 pub struct BufLines<B> {
