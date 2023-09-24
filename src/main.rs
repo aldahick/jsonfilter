@@ -6,8 +6,8 @@ use std::{error::Error, io::Write};
 mod io;
 mod progress;
 
-const GIGABYTE: u64 = u64::pow(1024, 3);
-const MEGABYTE: u64 = u64::pow(1024, 2);
+const MEGABYTE: f64 = 1024.0 * 1024.0;
+const GIGABYTE: f64 = MEGABYTE * 1024.0;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -45,13 +45,17 @@ fn is_filtered(row: &BorrowedValue, key: &str, filter: &str) -> Option<bool> {
 
 fn extract_archive(args: &Args) -> Result<(), Box<dyn Error>> {
   let total_size = io::get_size(&args.archive)?;
-  println!("Extracting {} GB to {}", total_size / GIGABYTE, &args.input);
+  println!(
+    "Extracting {:.2} GB to {}",
+    total_size as f64 / GIGABYTE,
+    &args.input
+  );
   let progress = create_progress_bar(total_size)?;
   let extracted_size = io::extract_archive(&args.archive, &args.input, &progress)?;
   println!(
-    "Finished extracting {} GB into {} GB in {} seconds",
-    total_size / GIGABYTE,
-    extracted_size / GIGABYTE,
+    "Finished extracting {:.2} GB into {:.2} GB in {} seconds",
+    total_size as f64 / GIGABYTE,
+    extracted_size as f64 / GIGABYTE,
     progress.elapsed().as_secs()
   );
   Ok(())
@@ -65,7 +69,11 @@ fn write_filtered_rows(args: &Args) -> Result<(), Box<dyn Error>> {
   let lines = io::read_lines_buf(&args.input)?;
   let key = args.key.as_str();
   let filter = args.filter.as_str();
-  println!("Filtering {} GB to {}", total_size / GIGABYTE, &args.output);
+  println!(
+    "Filtering {:.2} GB to {}",
+    total_size as f64 / GIGABYTE,
+    &args.output
+  );
   let progress = create_progress_bar(total_size)?;
   for line_result in lines {
     let line = line_result?;
@@ -80,9 +88,9 @@ fn write_filtered_rows(args: &Args) -> Result<(), Box<dyn Error>> {
     progress.set_position(total_read);
   }
   println!(
-    "Finished filtering {} GB into {} MB in {} seconds",
-    total_size / GIGABYTE,
-    total_wrote / MEGABYTE,
+    "Finished filtering {:.2} GB into {:.2} MB in {} seconds",
+    total_size as f64 / GIGABYTE,
+    total_wrote as f64 / MEGABYTE,
     progress.elapsed().as_secs()
   );
   Ok(())
