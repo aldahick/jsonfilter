@@ -1,6 +1,10 @@
 use clap::Parser;
 use progress::create_progress_bar;
-use simd_json::{to_borrowed_value, BorrowedValue, ValueAccess};
+use simd_json::{
+  base::{ValueAsContainer, ValueAsScalar},
+  derived::TypedScalarValue,
+  to_borrowed_value, BorrowedValue,
+};
 use std::{collections::HashSet, error::Error, io::Write};
 
 mod io;
@@ -42,6 +46,14 @@ struct Args {
 
 fn is_filtered(row: &BorrowedValue, key: &str, filter: &str) -> Option<bool> {
   let value = row.as_object()?.get(key)?;
+  if value.is_bool() {
+    let bool_value = value.as_bool()?;
+    if bool_value {
+      return Some(filter == "true");
+    } else {
+      return Some(filter == "false");
+    }
+  }
   Some(value.as_str()? == filter)
 }
 
